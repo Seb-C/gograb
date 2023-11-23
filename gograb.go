@@ -6,6 +6,7 @@ import (
 	"os"
 	"regexp"
 	"strconv"
+	"strings"
 )
 
 const doc = `Invalid arguments. Expected Syntax:
@@ -17,7 +18,7 @@ Where:
 `
 
 // TODO document and make an option for the substitution
-const RegexVariableSymbol = "@"
+const regexVariableSymbol = "@"
 
 func main() {
 	if len(os.Args) != 4 {
@@ -65,20 +66,19 @@ func main() {
 		log.Fatal(err)
 	}
 
-	// TODO
-	replacedContent, err := replaceTargetBlockContent(sourceFile, "test new content", lineNumber)
+	newBlockContent := transformBlockAsRequested(blockContent, regex, replacement)
+
+	replacedContent, err := replaceTargetBlockContent(sourceFile, newBlockContent, lineNumber)
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	fmt.Println(string(replacedContent))
-	_ = blockContent
-	_ = regex
 }
 
 func getBlockContent(sourceFile []byte, blockName string) ([]byte, error) {
 	matchBegin := "//[ \t]*gograb:begin " + blockName + "[ \t]*"
-	matchEnd := "\t*//[ \t]*gograb:end"
+	matchEnd := "\n\t*//[ \t]*gograb:end"
 	blockFinder := regexp.MustCompile("(?s)" + matchBegin + "\r?\n(.*?)" + matchEnd)
 
 	matches := blockFinder.FindAllSubmatch(sourceFile, 2)
@@ -99,7 +99,7 @@ func getBlockContent(sourceFile []byte, blockName string) ([]byte, error) {
 
 func replaceTargetBlockContent(
 	sourceFile []byte,
-	newContent string,
+	newContent []byte,
 	startLineNumber int,
 ) ([]byte, error) {
 	matchEnd := "(\n\t*//[ \t]*gograb:end.*?)$"
@@ -127,5 +127,14 @@ func replaceTargetBlockContent(
 		panic(fmt.Errorf("Got %d capture groups, expected 4", len(targetMatch) - 1))
 	}
 
-	return append(append(targetMatch[1], []byte(newContent)...), targetMatch[4]...), nil
+	return append(append(targetMatch[1], newContent...), targetMatch[4]...), nil
+}
+
+func transformBlockAsRequested(
+	blockContent []byte,
+	regex *regexp.Regexp,
+	replacement string,
+) []byte {
+	formattedReplacement := strings.ReplaceAll(replacement, regexVariableSymbol, "$")
+	return regex.ReplaceAll(blockContent, []byte(formattedReplacement))
 }

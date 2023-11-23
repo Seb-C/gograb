@@ -1,6 +1,7 @@
 package main
 
 import (
+	"regexp"
 	"strings"
 	"testing"
 
@@ -106,7 +107,7 @@ func TestReplaceTargetBlockContent(t *testing.T) {
 			}
 		`
 
-		result, err := replaceTargetBlockContent([]byte(source), "new content", 3)
+		result, err := replaceTargetBlockContent([]byte(source), []byte("new content"), 3)
 
 		assert.Nil(t, err)
 		assertSourceEquivalent(t, `
@@ -136,7 +137,7 @@ func TestReplaceTargetBlockContent(t *testing.T) {
 			}
 		`
 
-		result, err := replaceTargetBlockContent([]byte(source), "new content", 6)
+		result, err := replaceTargetBlockContent([]byte(source), []byte("new content"), 6)
 
 		assert.Nil(t, err)
 		assertSourceEquivalent(t, `
@@ -165,8 +166,32 @@ func TestReplaceTargetBlockContent(t *testing.T) {
 			}
 		`
 
-		_, err := replaceTargetBlockContent([]byte(source), "new content", 3)
+		_, err := replaceTargetBlockContent([]byte(source), []byte("new content"), 3)
 
 		assert.NotNil(t, err)
+	})
+}
+
+func TestTransformBlockAsRequested(t *testing.T) {
+	t.Run("With a single block", func(t *testing.T) {
+		source := `
+			server *http.Server
+			database *sql.DB
+			logger *slog.Logger
+			someValue int
+		`
+
+		result := transformBlockAsRequested(
+			[]byte(source),
+			regexp.MustCompile("\t([^ \n]+) +([^ \n]+)"),
+			"\t@1 @2,",
+		)
+
+		assertSourceEquivalent(t, `
+			server *http.Server,
+			database *sql.DB,
+			logger *slog.Logger,
+			someValue int,
+		`, result)
 	})
 }

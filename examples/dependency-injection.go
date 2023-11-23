@@ -19,10 +19,13 @@ type Foo struct {
 }
 
 func NewFoo(
-//go:generate go run ../gograb.go dependencies "\t([^ ]+) +([^ ]+)" "\t@1 @2,"
+//go:generate go run ../gograb.go dependencies "\t([^ \n]+) +([^ \n]+)" "\t@1 @2,"
 	existingContent int,
 //gograb:end
 ) *Foo {
 	return &Foo{
+//go:generate go run ../gograb.go dependencies "\t([^ \n]+) +([^ \n]+)" "\t\t@1: @1,"
+		existingContent: existingContent,
+//gograb:end
 	}
 }
