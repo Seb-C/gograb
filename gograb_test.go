@@ -1,7 +1,6 @@
 package main
 
 import (
-	"regexp"
 	"strings"
 	"testing"
 
@@ -17,11 +16,11 @@ var assertSourceEquivalent = func(t *testing.T, expect string, gotBytes []byte) 
 	assert.Equal(t, expect, got)
 }
 
-func TestGetBlockContent(t *testing.T) {
+func TestGetSource(t *testing.T) {
 	t.Run("Matches the expected block", func(t *testing.T) {
-		source := `
+		code := `
 			type Foo struct {
-				//gograb:begin dependencies
+				//gograb:source
 				server *http.Server
 				database *sql.DB
 				logger *slog.Logger
@@ -33,15 +32,17 @@ func TestGetBlockContent(t *testing.T) {
 			}
 
 			func NewFoo(
-			//go:generate gograb ...
+			//gograb:target foo bar
 			//gograb:end
 			) *Foo {
 				return &Foo{
+					//gograb:target foo bar
+					//gograb:end
 				}
 			}
 		`
 
-		result, err := getBlockContent([]byte(source), "dependencies")
+		result, err := getSource([]byte(code))
 
 		assert.Nil(t, err)
 		assertSourceEquivalent(t, `
@@ -52,9 +53,8 @@ func TestGetBlockContent(t *testing.T) {
 		`, result)
 	})
 	t.Run("Error if not found", func(t *testing.T) {
-		source := `
+		code := `
 			type Foo struct {
-				//gograb:begin not-dependencies
 				server *http.Server
 				database *sql.DB
 				logger *slog.Logger
@@ -66,132 +66,29 @@ func TestGetBlockContent(t *testing.T) {
 			}
 		`
 
-		_, err := getBlockContent([]byte(source), "dependencies")
+		_, err := getSource([]byte(code))
 
 		assert.NotNil(t, err)
 	})
 	t.Run("Error if multiple blocks", func(t *testing.T) {
-		source := `
+		code := `
 			type Foo struct {
-				//gograb:begin dependencies
+				//gograb:source
 				server *http.Server
 				database *sql.DB
 				logger *slog.Logger
 				someValue int
 				//gograb:end
 
-				//gograb:begin dependencies
+				//gograb:source
 				internalProperty string
 				otherInternalStuff float64
 				//gograb:end
 			}
 		`
 
-		_, err := getBlockContent([]byte(source), "dependencies")
+		_, err := getSource([]byte(code))
 
 		assert.NotNil(t, err)
-	})
-}
-
-func TestReplaceTargetBlockContent(t *testing.T) {
-	t.Run("With a single block", func(t *testing.T) {
-		source := `
-			func NewFoo(
-			//go:generate gograb ...
-			some
-			existing
-			content
-			//gograb:end
-			) *Foo {
-				return &Foo{}
-			}
-		`
-
-		result, err := replaceTargetBlockContent([]byte(source), []byte("new content"), 3)
-
-		assert.Nil(t, err)
-		assertSourceEquivalent(t, `
-			func NewFoo(
-			//go:generate gograb ...
-			new content
-			//gograb:end
-			) *Foo {
-				return &Foo{}
-			}
-		`, result)
-	})
-	t.Run("With multiple blocks", func(t *testing.T) {
-		source := `
-			//go:generate gograb ...
-			should not be replaced
-			//gograb:end
-			func NewFoo(
-			//go:generate gograb ...
-			some existing content
-			//gograb:end
-			) *Foo {
-				return &Foo{}
-				//go:generate gograb ...
-				should also not be replaced
-				//gograb:end
-			}
-		`
-
-		result, err := replaceTargetBlockContent([]byte(source), []byte("new content"), 6)
-
-		assert.Nil(t, err)
-		assertSourceEquivalent(t, `
-			//go:generate gograb ...
-			should not be replaced
-			//gograb:end
-			func NewFoo(
-			//go:generate gograb ...
-			new content
-			//gograb:end
-			) *Foo {
-				return &Foo{}
-				//go:generate gograb ...
-				should also not be replaced
-				//gograb:end
-			}
-		`, result)
-	})
-	t.Run("Error if missing end block", func(t *testing.T) {
-		source := `
-			func NewFoo(
-			//go:generate gograb ...
-			some existing content
-			) *Foo {
-				return &Foo{}
-			}
-		`
-
-		_, err := replaceTargetBlockContent([]byte(source), []byte("new content"), 3)
-
-		assert.NotNil(t, err)
-	})
-}
-
-func TestTransformBlockAsRequested(t *testing.T) {
-	t.Run("With a single block", func(t *testing.T) {
-		source := `
-			server *http.Server
-			database *sql.DB
-			logger *slog.Logger
-			someValue int
-		`
-
-		result := transformBlockAsRequested(
-			[]byte(source),
-			regexp.MustCompile("\t([^ \n]+) +([^ \n]+)"),
-			"\t@1 @2,",
-		)
-
-		assertSourceEquivalent(t, `
-			server *http.Server,
-			database *sql.DB,
-			logger *slog.Logger,
-			someValue int,
-		`, result)
 	})
 }

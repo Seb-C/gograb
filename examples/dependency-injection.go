@@ -6,26 +6,28 @@ import (
 	"net/http"
 )
 
+//go:generate go run ../gograb.go
+
 type Foo struct {
-	//gograb:begin dependencies
-	server *http.Server
-	database *sql.DB
-	logger *slog.Logger
+	//gograb:source
+	server    *http.Server
+	database  *sql.DB
+	logger    *slog.Logger
 	someValue int
 	//gograb:end
 
-	internalProperty string
+	internalProperty   string
 	otherInternalStuff float64
 }
 
 func NewFoo(
-//go:generate go run ../gograb.go dependencies "\t([^ \n]+) +([^ \n]+)" "\t@1 @2,"
-	existingContent int,
-//gograb:end
+	//gograb:target "\t([^ \n]+) +([^ \n]+)" "\t$1 $2,"
+	internalProperty string,
+	//gograb:end
 ) *Foo {
 	return &Foo{
-//go:generate go run ../gograb.go dependencies "\t([^ \n]+) +([^ \n]+)" "\t\t@1: @1,"
-		existingContent: existingContent,
-//gograb:end
+		//gograb:target "\t([^ \n]+) +([^ \n]+)" "\t\t$1: $1,"
+		internalProperty: internalProperty,
+		//gograb:end
 	}
 }
